@@ -31,5 +31,19 @@ fn setup(
         Mesh2d(meshes.add(Rectangle::new(SPRITE_SIZE, SPRITE_SIZE))),
         MeshMaterial2d(materials.add(Color::srgb(0., 0.2, 0.))),
         Transform::from_xyz(100.0, 100.0, 0.0),
-    ));
+    )).observe(on_rect_click);
+}
+
+fn on_rect_click(
+    _click: Trigger<Pointer<Click>>,
+    mut mat_query: Query<
+        &mut MeshMaterial2d<ColorMaterial>,
+    >,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    println!("click on rect happened");
+
+    let elem: Mut<'_, MeshMaterial2d<ColorMaterial>> = mat_query.single_mut();
+    let asset_id: AssetId<ColorMaterial> = elem.0.id();
+    materials.get_mut(asset_id).unwrap().color = Color::BLACK;
 }
