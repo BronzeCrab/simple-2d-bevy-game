@@ -3,6 +3,7 @@ use bevy::render::settings::*;
 use bevy::render::RenderPlugin;
 
 const SPRITE_SIZE: f32 = 50.;
+const GREEN: Color = Color::srgb(0., 0.2, 0.);
 
 fn main() {
     App::new()
@@ -29,7 +30,7 @@ fn setup(
 
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::new(SPRITE_SIZE, SPRITE_SIZE))),
-        MeshMaterial2d(materials.add(Color::srgb(0., 0.2, 0.))),
+        MeshMaterial2d(materials.add(GREEN)),
         Transform::from_xyz(100.0, 100.0, 0.0),
     )).observe(on_rect_click);
 }
@@ -45,5 +46,10 @@ fn on_rect_click(
 
     let elem: Mut<'_, MeshMaterial2d<ColorMaterial>> = mat_query.single_mut();
     let asset_id: AssetId<ColorMaterial> = elem.0.id();
-    materials.get_mut(asset_id).unwrap().color = Color::BLACK;
+    if materials.get_mut(asset_id).unwrap().color == Color::BLACK {
+        materials.get_mut(asset_id).unwrap().color = GREEN;
+    }
+    else {
+        materials.get_mut(asset_id).unwrap().color = Color::BLACK;
+    }
 }
