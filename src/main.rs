@@ -19,6 +19,7 @@ fn main() {
             MeshPickingPlugin,
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, button_system)
         .run();
 }
 
@@ -53,27 +54,27 @@ fn setup(
     ));
 
     commands
-    .spawn((
-        Button,
-        Node {
-            top: Val::Px(60.0),
-            border: UiRect::all(Val::Px(5.0)),
-            justify_self: JustifySelf::Center,
-            ..default()
-        },
-        BorderColor(Color::BLACK),
-        BorderRadius::MAX,
-    ))
-    .with_children(|builder| {
-        builder.spawn((
-            Text::new("Click on me"),
-            TextFont {
-                font_size: 32.0,
+        .spawn((
+            Button,
+            Node {
+                top: Val::Px(60.0),
+                border: UiRect::all(Val::Px(5.0)),
+                justify_self: JustifySelf::Center,
                 ..default()
             },
-            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-        ));
-    });
+            BorderColor(Color::BLACK),
+            BorderRadius::MAX,
+        ))
+        .with_children(|builder| {
+            builder.spawn((
+                Text::new("Click on me"),
+                TextFont {
+                    font_size: 32.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            ));
+        });
 
     for i in 0..2 {
         commands
@@ -110,6 +111,21 @@ fn on_rect_click(
             } else {
                 materials.get_mut(asset_id).unwrap().color = Color::BLACK;
             }
+        }
+    }
+}
+
+fn button_system(
+    mut interaction_query: Query<&Interaction, (Changed<Interaction>, With<Button>)>,
+    mut text_query: Query<&mut Text, With<Label>>,
+) {
+    for interaction in &mut interaction_query {
+        match *interaction {
+            Interaction::Pressed => {
+                println!("Btn is pressed");
+                text_query.get_single_mut().unwrap().0 = String::from("Btn is clicked");
+            }
+            _ => {}
         }
     }
 }
