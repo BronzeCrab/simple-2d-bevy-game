@@ -32,6 +32,26 @@ fn setup(
 ) {
     commands.spawn(Camera2d);
 
+    // Text with one section
+    commands.spawn((
+        // Accepts a `String` or any type that converts into a `String`, such as `&str`
+        Text::new("Plz click on some rect"),
+        TextFont {
+            // This font is loaded and will be used instead of the default font.
+            // font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 32.0,
+            ..default()
+        },
+        // Set the justification of the Text
+        TextLayout::new_with_justify(JustifyText::Right),
+        // Set the style of the Node itself.
+        Node {
+            justify_self: JustifySelf::Center,
+            ..default()
+        },
+        Label,
+    ));
+
     for i in 0..2 {
         commands
             .spawn((
