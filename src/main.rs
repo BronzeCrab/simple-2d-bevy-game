@@ -1,6 +1,6 @@
 use bevy::prelude::*;
-use bevy::render::settings::*;
 use bevy::render::RenderPlugin;
+use bevy::render::settings::*;
 
 const SPRITE_SIZE: f32 = 50.;
 const GREEN: Color = Color::srgb(0., 0.2, 0.);
@@ -21,6 +21,10 @@ fn main() {
         .add_systems(Startup, setup)
         .run();
 }
+
+#[derive(Component)]
+struct RectangleIndexes(i32);
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -28,28 +32,41 @@ fn setup(
 ) {
     commands.spawn(Camera2d);
 
-    commands.spawn((
-        Mesh2d(meshes.add(Rectangle::new(SPRITE_SIZE, SPRITE_SIZE))),
-        MeshMaterial2d(materials.add(GREEN)),
-        Transform::from_xyz(100.0, 100.0, 0.0),
-    )).observe(on_rect_click);
+    for i in 0..2 {
+        commands
+            .spawn((
+                Mesh2d(meshes.add(Rectangle::new(SPRITE_SIZE, SPRITE_SIZE))),
+                MeshMaterial2d(materials.add(GREEN)),
+                Transform::from_xyz(i as f32 * 100.0, i as f32 * 100.0, 0.0),
+                RectangleIndexes(i),
+            ))
+            .observe(on_rect_click);
+    }
 }
 
 fn on_rect_click(
-    _click: Trigger<Pointer<Click>>,
+    click: Trigger<Pointer<Click>>,
     mut mat_query: Query<
-        &mut MeshMaterial2d<ColorMaterial>,
+        (&mut MeshMaterial2d<ColorMaterial>, &RectangleIndexes),
+        With<RectangleIndexes>,
     >,
+    mut rect_indexes_q: Query<&RectangleIndexes>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     println!("click on rect happened");
 
-    let elem: Mut<'_, MeshMaterial2d<ColorMaterial>> = mat_query.single_mut();
-    let asset_id: AssetId<ColorMaterial> = elem.0.id();
-    if materials.get_mut(asset_id).unwrap().color == Color::BLACK {
-        materials.get_mut(asset_id).unwrap().color = GREEN;
-    }
-    else {
-        materials.get_mut(asset_id).unwrap().color = Color::BLACK;
+    let rect_index: &RectangleIndexes = rect_indexes_q.get_mut(click.target).unwrap();
+
+    for elem in mat_query.iter_mut() {
+        let some_mut: Mut<'_, MeshMaterial2d<ColorMaterial>> = elem.0;
+        let asset_id: AssetId<ColorMaterial> = some_mut.0.id();
+        let ind: i32 = elem.1.0;
+        if ind == rect_index.0 {
+            if materials.get_mut(asset_id).unwrap().color == Color::BLACK {
+                materials.get_mut(asset_id).unwrap().color = GREEN;
+            } else {
+                materials.get_mut(asset_id).unwrap().color = Color::BLACK;
+            }
+        }
     }
 }
