@@ -52,6 +52,29 @@ fn setup(
         Label,
     ));
 
+    commands
+    .spawn((
+        Button,
+        Node {
+            top: Val::Px(60.0),
+            border: UiRect::all(Val::Px(5.0)),
+            justify_self: JustifySelf::Center,
+            ..default()
+        },
+        BorderColor(Color::BLACK),
+        BorderRadius::MAX,
+    ))
+    .with_children(|builder| {
+        builder.spawn((
+            Text::new("Click on me"),
+            TextFont {
+                font_size: 32.0,
+                ..default()
+            },
+            TextColor(Color::srgb(0.9, 0.9, 0.9)),
+        ));
+    });
+
     for i in 0..2 {
         commands
             .spawn((
