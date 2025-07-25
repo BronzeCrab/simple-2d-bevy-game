@@ -17,7 +17,7 @@ cargo install wasm-bindgen-cli
 
 ```
 
-form the root of project:
+from the root of project:
 This command will build the example for the wasm target, creating a binary
 
 ```sh
