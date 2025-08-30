@@ -10,7 +10,7 @@ fn main() {
         .add_plugins((
             DefaultPlugins.set(RenderPlugin {
                 render_creation: WgpuSettings {
-                    backends: Some(Backends::GL),
+                    backends: Some(Backends::DX12),
                     ..default()
                 }
                 .into(),
@@ -123,7 +123,7 @@ fn button_system(
         match *interaction {
             Interaction::Pressed => {
                 println!("Btn is pressed");
-                text_query.get_single_mut().unwrap().0 = String::from("Btn is clicked");
+                text_query.single_mut().unwrap().0 = String::from("Btn is clicked");
             }
             _ => {}
         }

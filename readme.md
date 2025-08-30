@@ -18,14 +18,14 @@ cargo install wasm-bindgen-cli
 ```
 
 from the root of project:
-This command will build the example for the wasm target, creating a binary
+This command will build the game for the wasm target, creating a binary
 
 ```sh
 cargo build --profile wasm-release --target wasm32-unknown-unknown
 ```
 
 Then, wasm-bindgen-cli is used to create javascript bindings to wasm file in the output file
-www/simple_2d_game.js, which can be loaded using HTML file.
+`www/simple_2d_game.js`, which can be loaded using HTML file.
 
 ```sh
 wasm-bindgen --out-name simple_2d_game --out-dir www --target web target/wasm32-unknown-unknown/wasm-release/simple-2d-bevy-game.wasm
