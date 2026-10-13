@@ -1,25 +1,34 @@
-use bevy::prelude::*;
+use bevy::prelude::{
+    App, AssetId, Assets, BorderColor, BorderRadius, Camera2d, Color, ColorMaterial, Commands,
+    Component, DefaultPlugins, FontSize, Justify, JustifySelf, Label, Mesh, Mesh2d, MeshMaterial2d,
+    MeshPickingPlugin, Mut, Node, On, PluginGroup, PointerClick, Query, Rectangle, ResMut, Startup,
+    Text, TextColor, TextFont, TextLayout, Transform, UiRect, Val, With, default,
+};
 use bevy::render::RenderPlugin;
-use bevy::render::settings::*;
+use bevy::ui_widgets::{Activate, Button};
+
+#[cfg(target_os = "windows")]
+use bevy::render::settings::{Backends, WgpuSettings};
 
 const SPRITE_SIZE: f32 = 50.;
 const GREEN: Color = Color::srgb(0., 0.2, 0.);
 
 fn main() {
+    #[cfg(target_os = "windows")]
+    let render_plugin = RenderPlugin {
+        render_creation: WgpuSettings {
+            backends: Some(Backends::DX12),
+            ..default()
+        }
+        .into(),
+        ..default()
+    };
+    #[cfg(not(target_os = "windows"))]
+    let render_plugin = RenderPlugin::default();
+
     App::new()
-        .add_plugins((
-            DefaultPlugins.set(RenderPlugin {
-                render_creation: WgpuSettings {
-                    backends: Some(Backends::DX12),
-                    ..default()
-                }
-                .into(),
-                ..default()
-            }),
-            MeshPickingPlugin,
-        ))
+        .add_plugins((DefaultPlugins.set(render_plugin), MeshPickingPlugin))
         .add_systems(Startup, setup)
-        .add_systems(Update, button_system)
         .run();
 }
 
@@ -40,11 +49,11 @@ fn setup(
         TextFont {
             // This font is loaded and will be used instead of the default font.
             // font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-            font_size: 32.0,
+            font_size: FontSize::Px(32.0),
             ..default()
         },
         // Set the justification of the Text
-        TextLayout::new_with_justify(JustifyText::Right),
+        TextLayout::justify(Justify::Right),
         // Set the style of the Node itself.
         Node {
             justify_self: JustifySelf::Center,
@@ -60,16 +69,22 @@ fn setup(
                 top: Val::Px(60.0),
                 border: UiRect::all(Val::Px(5.0)),
                 justify_self: JustifySelf::Center,
+                border_radius: BorderRadius::MAX,
                 ..default()
             },
-            BorderColor(Color::BLACK),
-            BorderRadius::MAX,
+            BorderColor::all(Color::BLACK),
         ))
+        .observe(
+            |_: On<Activate>, mut text_query: Query<&mut Text, With<Label>>| {
+                println!("Btn is pressed");
+                text_query.single_mut().unwrap().0 = String::from("Btn is clicked");
+            },
+        )
         .with_children(|builder| {
             builder.spawn((
                 Text::new("Click on me"),
                 TextFont {
-                    font_size: 32.0,
+                    font_size: FontSize::Px(32.0),
                     ..default()
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
@@ -89,7 +104,7 @@ fn setup(
 }
 
 fn on_rect_click(
-    click: Trigger<Pointer<Click>>,
+    click: On<PointerClick>,
     mut mat_query: Query<
         (&mut MeshMaterial2d<ColorMaterial>, &RectangleIndexes),
         With<RectangleIndexes>,
@@ -99,7 +114,7 @@ fn on_rect_click(
 ) {
     println!("click on rect happened");
 
-    let rect_index: &RectangleIndexes = rect_indexes_q.get_mut(click.target).unwrap();
+    let rect_index: &RectangleIndexes = rect_indexes_q.get_mut(click.entity).unwrap();
 
     for elem in mat_query.iter_mut() {
         let some_mut: Mut<'_, MeshMaterial2d<ColorMaterial>> = elem.0;
@@ -111,21 +126,6 @@ fn on_rect_click(
             } else {
                 materials.get_mut(asset_id).unwrap().color = Color::BLACK;
             }
-        }
-    }
-}
-
-fn button_system(
-    mut interaction_query: Query<&Interaction, (Changed<Interaction>, With<Button>)>,
-    mut text_query: Query<&mut Text, With<Label>>,
-) {
-    for interaction in &mut interaction_query {
-        match *interaction {
-            Interaction::Pressed => {
-                println!("Btn is pressed");
-                text_query.single_mut().unwrap().0 = String::from("Btn is clicked");
-            }
-            _ => {}
         }
     }
 }
