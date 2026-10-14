@@ -1,10 +1,10 @@
 use bevy::asset::AssetMut;
 use bevy::prelude::{
-    App, AssetId, Assets, BorderColor, BorderRadius, Camera2d, Color, ColorMaterial, Commands,
-    Component, DefaultPlugins, FontSize, Justify, JustifySelf, Label, Mesh, Mesh2d, MeshMaterial2d,
-    MeshPickingPlugin, Mut, Node, On, PluginGroup, PointerClick, Query, Rectangle, Res, ResMut,
-    Resource, Startup, Text, TextColor, TextFont, TextLayout, Time, Transform, UiRect, Update, Val,
-    Vec3, Window, With, default,
+    App, AssetId, Assets, BorderColor, BorderRadius, ButtonInput, Camera2d, Color, ColorMaterial,
+    Commands, Component, DefaultPlugins, Entity, FontSize, Justify, JustifySelf, KeyCode, Label,
+    Mesh, Mesh2d, MeshMaterial2d, MeshPickingPlugin, Mut, Node, On, PluginGroup, PointerClick,
+    Query, Rectangle, Res, ResMut, Resource, Startup, Text, TextColor, TextFont, TextLayout, Time,
+    Transform, Triangle2d, UiRect, Update, Val, Vec2, Vec3, Window, With, default,
 };
 use bevy::render::RenderPlugin;
 use bevy::ui_widgets::Button;
@@ -24,11 +24,20 @@ struct RectsShouldMove(bool);
 
 const VELOCITY: f32 = 120.0;
 
+const PLAYER_SPEED: f32 = 200.0;
+const PLAYER_RADIUS: f32 = 25.0;
+
 #[derive(Component)]
 struct Velocity {
     x: f32,
     y: f32,
 }
+
+#[derive(Component)]
+struct Player;
+
+#[derive(Component)]
+struct PlayerBullet;
 
 fn main() {
     #[cfg(target_os = "windows")]
@@ -47,7 +56,15 @@ fn main() {
         .add_plugins((DefaultPlugins.set(render_plugin), MeshPickingPlugin))
         .insert_resource(RectsShouldMove(false))
         .add_systems(Startup, setup)
-        .add_systems(Update, rects_movement_system)
+        .add_systems(
+            Update,
+            (
+                rects_movement_system,
+                player_movement,
+                player_fire_bullet_system,
+                player_fire_bullet_velocity_update_system,
+            ),
+        )
         .run();
 }
 
@@ -113,6 +130,18 @@ fn setup(
             ))
             .observe(on_rect_click);
     }
+
+    let half_base = PLAYER_RADIUS * 3f32.sqrt() / 2.0;
+    commands.spawn((
+        Mesh2d(meshes.add(Triangle2d::new(
+            Vec2::new(0.0, PLAYER_RADIUS),
+            Vec2::new(-half_base, -PLAYER_RADIUS / 2.0),
+            Vec2::new(half_base, -PLAYER_RADIUS / 2.0),
+        ))),
+        MeshMaterial2d(materials.add(Color::srgb(1.0, 0.0, 0.0))),
+        Transform::default(),
+        Player,
+    ));
 }
 
 fn on_rect_click(
@@ -182,6 +211,96 @@ fn rects_movement_system(
                 transf.translation.y = max_y;
                 velocity.y = -velocity.y.abs();
             }
+        }
+    }
+}
+
+fn player_movement(
+    keys: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+    mut player_query: Query<&mut Transform, With<Player>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+) {
+    let Ok(mut transf) = player_query.single_mut() else {
+        return;
+    };
+    let Ok(window) = window_query.single() else {
+        return;
+    };
+
+    let mut dir = Vec2::ZERO;
+    if keys.any_pressed([KeyCode::KeyW, KeyCode::ArrowUp]) {
+        dir.y += 1.0;
+    }
+    if keys.any_pressed([KeyCode::KeyS, KeyCode::ArrowDown]) {
+        dir.y -= 1.0;
+    }
+    if keys.any_pressed([KeyCode::KeyA, KeyCode::ArrowLeft]) {
+        dir.x -= 1.0;
+    }
+    if keys.any_pressed([KeyCode::KeyD, KeyCode::ArrowRight]) {
+        dir.x += 1.0;
+    }
+
+    if dir != Vec2::ZERO {
+        dir = dir.normalize();
+    }
+
+    transf.translation += (dir * PLAYER_SPEED * time.delta_secs()).extend(0.0);
+
+    let max_x = window.width() / 2.0 - PLAYER_RADIUS;
+    let max_y = window.height() / 2.0 - PLAYER_RADIUS;
+    transf.translation.x = transf.translation.x.clamp(-max_x, max_x);
+    transf.translation.y = transf.translation.y.clamp(-max_y, max_y);
+}
+
+fn player_fire_bullet_system(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    keys: Res<ButtonInput<KeyCode>>,
+    player_query: Query<&Transform, With<Player>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+) {
+    let Ok(transf) = player_query.single() else {
+        return;
+    };
+    let Ok(_window) = window_query.single() else {
+        return;
+    };
+    if keys.any_pressed([KeyCode::Space]) {
+        commands.spawn((
+            Mesh2d(meshes.add(Rectangle::new(2.0, 2.0))),
+            MeshMaterial2d(materials.add(Color::WHITE)),
+            Transform::from_xyz(transf.translation.x, transf.translation.y, 0.0),
+            PlayerBullet,
+            Velocity {
+                x: 0.0,
+                y: VELOCITY,
+            },
+        ));
+    }
+}
+
+fn player_fire_bullet_velocity_update_system(
+    mut commands: Commands,
+    mut bullets_tr_query: Query<(Entity, &mut Transform, &Velocity), With<PlayerBullet>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    time: Res<Time>,
+) {
+    let Ok(window) = window_query.single() else {
+        return;
+    };
+
+    let margin = SPRITE_SIZE / 2.0;
+    let max_x = window.width() / 2.0 + margin;
+    let max_y = window.height() / 2.0 + margin;
+
+    for (entity, mut transf, velocity) in bullets_tr_query.iter_mut() {
+        transf.translation += Vec3::new(0.0, velocity.y, 0.0) * time.delta_secs();
+
+        if transf.translation.x.abs() > max_x || transf.translation.y.abs() > max_y {
+            commands.entity(entity).despawn();
         }
     }
 }
