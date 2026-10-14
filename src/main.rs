@@ -1,10 +1,11 @@
 use bevy::asset::AssetMut;
 use bevy::prelude::{
-    App, AssetId, Assets, BorderColor, BorderRadius, ButtonInput, Camera2d, Color, ColorMaterial,
-    Commands, Component, DefaultPlugins, Entity, FontSize, Justify, JustifySelf, KeyCode, Label,
-    Mesh, Mesh2d, MeshMaterial2d, MeshPickingPlugin, Mut, Node, On, PluginGroup, PointerClick,
-    Query, Rectangle, Res, ResMut, Resource, Startup, Text, TextColor, TextFont, TextLayout, Time,
-    Transform, Triangle2d, UiRect, Update, Val, Vec2, Vec3, Window, With, default,
+    Aabb2d, App, AssetId, Assets, BorderColor, BorderRadius, ButtonInput, Camera2d, Color,
+    ColorMaterial, Commands, Component, DefaultPlugins, Entity, FontSize, IntersectsVolume,
+    Justify, JustifySelf, KeyCode, Label, Mesh, Mesh2d, MeshMaterial2d, MeshPickingPlugin, Mut,
+    Node, On, PluginGroup, PointerClick, Query, Rectangle, Res, ResMut, Resource, Startup, Text,
+    TextColor, TextFont, TextLayout, Time, Transform, Triangle2d, UiRect, Update, Val, Vec2, Vec3,
+    Window, With, default,
 };
 use bevy::render::RenderPlugin;
 use bevy::ui_widgets::Button;
@@ -63,6 +64,7 @@ fn main() {
                 player_movement,
                 player_fire_bullet_system,
                 player_fire_bullet_velocity_update_system,
+                check_bullets_and_rects_collisions_system,
             ),
         )
         .run();
@@ -301,6 +303,26 @@ fn player_fire_bullet_velocity_update_system(
 
         if transf.translation.x.abs() > max_x || transf.translation.y.abs() > max_y {
             commands.entity(entity).despawn();
+        }
+    }
+}
+
+fn check_bullets_and_rects_collisions_system(
+    mut commands: Commands,
+    mut bullets_tr_query: Query<(Entity, &Transform), With<PlayerBullet>>,
+    mut rect_tr_query: Query<(Entity, &Transform), With<RectLabel>>,
+) {
+    for (bullet_entity, bullet_transf) in bullets_tr_query.iter_mut() {
+        for (rect_entity, rect_transf) in rect_tr_query.iter_mut() {
+            let bullet = Aabb2d::new(bullet_transf.translation.truncate(), Vec2::splat(1.0));
+            let rect = Aabb2d::new(
+                rect_transf.translation.truncate(),
+                Vec2::splat(SPRITE_SIZE / 2.0),
+            );
+            if bullet.intersects(&rect) {
+                commands.entity(bullet_entity).despawn();
+                commands.entity(rect_entity).despawn();
+            }
         }
     }
 }
