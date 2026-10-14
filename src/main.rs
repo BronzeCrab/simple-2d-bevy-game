@@ -268,7 +268,7 @@ fn player_fire_bullet_system(
     let Ok(_window) = window_query.single() else {
         return;
     };
-    if keys.any_pressed([KeyCode::Space]) {
+    if keys.just_pressed(KeyCode::Space) {
         commands.spawn((
             Mesh2d(meshes.add(Rectangle::new(2.0, 2.0))),
             MeshMaterial2d(materials.add(Color::WHITE)),
