@@ -3,16 +3,11 @@ use bevy::prelude::{
     Aabb2d, App, AssetId, Assets, BorderColor, BorderRadius, ButtonInput, Camera2d, Color,
     ColorMaterial, Commands, Component, DefaultPlugins, Entity, FontSize, IntersectsVolume,
     Justify, JustifySelf, KeyCode, Label, Mesh, Mesh2d, MeshMaterial2d, MeshPickingPlugin, Mut,
-    Node, On, PluginGroup, PointerClick, Query, Rectangle, Res, ResMut, Resource, Startup, Text,
-    TextColor, TextFont, TextLayout, Time, Transform, Triangle2d, UiRect, Update, Val, Vec2, Vec3,
+    Node, On, PointerClick, Query, Rectangle, Res, ResMut, Resource, Startup, Text, TextColor, TextFont, TextLayout, Time, Transform, Triangle2d, UiRect, Update, Val, Vec2, Vec3,
     Window, With, default,
 };
-use bevy::render::RenderPlugin;
 use bevy::ui_widgets::Button;
 use bevy::window::PrimaryWindow;
-
-#[cfg(target_os = "windows")]
-use bevy::render::settings::{Backends, WgpuSettings};
 
 const SPRITE_SIZE: f32 = 50.;
 const GREEN: Color = Color::srgb(0., 0.2, 0.);
@@ -42,20 +37,8 @@ struct Player;
 struct PlayerBullet;
 
 fn main() {
-    #[cfg(target_os = "windows")]
-    let render_plugin = RenderPlugin {
-        render_creation: WgpuSettings {
-            backends: Some(Backends::DX12),
-            ..default()
-        }
-        .into(),
-        ..default()
-    };
-    #[cfg(not(target_os = "windows"))]
-    let render_plugin = RenderPlugin::default();
-
     App::new()
-        .add_plugins((DefaultPlugins.set(render_plugin), MeshPickingPlugin))
+        .add_plugins((DefaultPlugins, MeshPickingPlugin))
         .insert_resource(RectsShouldMove(false))
         .add_systems(Startup, setup)
         .add_systems(
