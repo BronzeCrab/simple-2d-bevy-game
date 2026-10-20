@@ -3,8 +3,9 @@ use bevy::prelude::{
     Aabb2d, App, AssetId, Assets, BorderColor, BorderRadius, ButtonInput, Camera2d, Color,
     ColorMaterial, Commands, Component, DefaultPlugins, Entity, FontSize, IntersectsVolume,
     Justify, JustifySelf, KeyCode, Label, Mesh, Mesh2d, MeshMaterial2d, MeshPickingPlugin, Mut,
-    Node, On, PointerClick, Query, Rectangle, Res, ResMut, Resource, Startup, Text, TextColor, TextFont, TextLayout, Time, Transform, Triangle2d, UiRect, Update, Val, Vec2, Vec3,
-    Window, With, default,
+    Node, On, PointerClick, Query, Rectangle, Res, ResMut, Resource, Startup, Text, TextColor,
+    TextFont, TextLayout, Time, Timer, TimerMode, Transform, Triangle2d, UiRect, Update, Val, Vec2,
+    Vec3, Window, With, default,
 };
 use bevy::ui_widgets::Button;
 use bevy::window::PrimaryWindow;
@@ -36,6 +37,12 @@ struct Player;
 #[derive(Component)]
 struct PlayerBullet;
 
+#[derive(Component)]
+struct EnemyBullet;
+
+#[derive(Component)]
+struct EnemiesFireTimer(Timer);
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, MeshPickingPlugin))
@@ -47,8 +54,12 @@ fn main() {
                 rects_movement_system,
                 player_movement,
                 player_fire_bullet_system,
-                player_fire_bullet_velocity_update_system,
-                check_bullets_and_rects_collisions_system,
+                check_player_bullets_velocity_update_system,
+                check_player_bullets_and_rects_collisions_system,
+                check_player_and_rects_collisions_system,
+                tick_enemies_fire_bullets_system,
+                check_enemies_bullets_velocity_update_system,
+                check_enemies_bullets_and_player_collisions_system,
             ),
         )
         .run();
@@ -122,6 +133,7 @@ fn spawn_player_and_rect_enemies(
                     x: VELOCITY,
                     y: VELOCITY,
                 },
+                EnemiesFireTimer(Timer::from_seconds(2.0, TimerMode::Repeating)),
             ))
             .observe(on_rect_click);
     }
@@ -134,7 +146,7 @@ fn spawn_player_and_rect_enemies(
             Vec2::new(half_base, -PLAYER_RADIUS / 2.0),
         ))),
         MeshMaterial2d(materials.add(Color::srgb(1.0, 0.0, 0.0))),
-        Transform::default(),
+        Transform::from_xyz(0.0, -100.0, 0.0),
         Player,
     ));
 }
@@ -286,7 +298,7 @@ fn player_fire_bullet_system(
     }
 }
 
-fn player_fire_bullet_velocity_update_system(
+fn check_player_bullets_velocity_update_system(
     mut commands: Commands,
     mut bullets_tr_query: Query<(Entity, &mut Transform, &Velocity), With<PlayerBullet>>,
     window_query: Query<&Window, With<PrimaryWindow>>,
@@ -309,10 +321,97 @@ fn player_fire_bullet_velocity_update_system(
     }
 }
 
-fn check_bullets_and_rects_collisions_system(
+fn check_player_bullets_and_rects_collisions_system(
     mut commands: Commands,
     mut bullets_tr_query: Query<(Entity, &Transform), With<PlayerBullet>>,
     mut rect_tr_query: Query<(Entity, &Transform), With<RectLabel>>,
+) {
+    for (bullet_entity, bullet_transf) in bullets_tr_query.iter_mut() {
+        for (rect_entity, rect_transf) in rect_tr_query.iter_mut() {
+            let bullet = Aabb2d::new(bullet_transf.translation.truncate(), Vec2::splat(1.0));
+            let rect = Aabb2d::new(
+                rect_transf.translation.truncate(),
+                Vec2::splat(SPRITE_SIZE / 2.0),
+            );
+            if bullet.intersects(&rect) {
+                commands.entity(bullet_entity).despawn();
+                commands.entity(rect_entity).despawn();
+            }
+        }
+    }
+}
+
+fn check_player_and_rects_collisions_system(
+    mut commands: Commands,
+    palyer_query: Query<(Entity, &Transform), With<Player>>,
+    mut rect_tr_query: Query<(Entity, &Transform), With<RectLabel>>,
+) {
+    if let Ok(player_tuple) = palyer_query.single() {
+        let player_entity = player_tuple.0;
+        let player_transf = player_tuple.1;
+        for (_, rect_transf) in rect_tr_query.iter_mut() {
+            let player = Aabb2d::new(player_transf.translation.truncate(), Vec2::splat(1.0));
+            let rect = Aabb2d::new(
+                rect_transf.translation.truncate(),
+                Vec2::splat(SPRITE_SIZE / 2.0),
+            );
+            if player.intersects(&rect) {
+                commands.entity(player_entity).despawn();
+            }
+        }
+    }
+}
+
+fn tick_enemies_fire_bullets_system(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    time: Res<Time>,
+    mut rect_fire_query: Query<(Entity, &mut EnemiesFireTimer, &Transform), With<RectLabel>>,
+) {
+    for (_, mut fire_timer, transf) in &mut rect_fire_query {
+        if fire_timer.0.tick(time.delta()).just_finished() {
+            commands.spawn((
+                Mesh2d(meshes.add(Rectangle::new(4.0, 4.0))),
+                MeshMaterial2d(materials.add(Color::BLACK)),
+                Transform::from_xyz(transf.translation.x, transf.translation.y, 0.0),
+                EnemyBullet,
+                Velocity {
+                    x: 0.0,
+                    y: -VELOCITY,
+                },
+            ));
+        }
+    }
+}
+
+fn check_enemies_bullets_velocity_update_system(
+    mut commands: Commands,
+    mut bullets_tr_query: Query<(Entity, &mut Transform, &Velocity), With<EnemyBullet>>,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    time: Res<Time>,
+) {
+    let Ok(window) = window_query.single() else {
+        return;
+    };
+
+    let margin = SPRITE_SIZE / 2.0;
+    let max_x = window.width() / 2.0 + margin;
+    let max_y = window.height() / 2.0 + margin;
+
+    for (entity, mut transf, velocity) in bullets_tr_query.iter_mut() {
+        transf.translation += Vec3::new(0.0, velocity.y, 0.0) * time.delta_secs();
+
+        if transf.translation.x.abs() > max_x || transf.translation.y.abs() > max_y {
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
+fn check_enemies_bullets_and_player_collisions_system(
+    mut commands: Commands,
+    mut bullets_tr_query: Query<(Entity, &Transform), With<EnemyBullet>>,
+    mut rect_tr_query: Query<(Entity, &Transform), With<Player>>,
 ) {
     for (bullet_entity, bullet_transf) in bullets_tr_query.iter_mut() {
         for (rect_entity, rect_transf) in rect_tr_query.iter_mut() {
