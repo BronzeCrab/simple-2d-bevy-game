@@ -16,6 +16,7 @@ use bevy::render::settings::{Backends, WgpuSettings};
 
 const SPRITE_SIZE: f32 = 50.;
 const GREEN: Color = Color::srgb(0., 0.2, 0.);
+const AMOUNT_OF_ENEMIES_RECTS: u8 = 3;
 
 #[derive(Component)]
 struct RectLabel;
@@ -72,15 +73,14 @@ fn main() {
 
 fn setup(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn(Camera2d);
-
     // Text with one section
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
-        Text::new("Plz click on some rect"),
+        Text::new("Plz click on some rect to change it color"),
         TextFont {
             // This font is loaded and will be used instead of the default font.
             // font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -111,7 +111,7 @@ fn setup(
         ))
         .with_children(|builder| {
             builder.spawn((
-                Text::new("Click on me"),
+                Text::new("Start"),
                 TextFont {
                     font_size: FontSize::Px(32.0),
                     ..default()
@@ -119,16 +119,26 @@ fn setup(
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
             ));
         })
-        .observe(on_btn_click);
+        .observe(on_start_btn_click);
+    spawn_player_and_rect_enemies(commands, meshes, materials);
+}
 
-    for i in 0..2 {
+fn spawn_player_and_rect_enemies(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    for i in 0..AMOUNT_OF_ENEMIES_RECTS {
         commands
             .spawn((
                 Mesh2d(meshes.add(Rectangle::new(SPRITE_SIZE, SPRITE_SIZE))),
                 MeshMaterial2d(materials.add(GREEN)),
                 Transform::from_xyz(i as f32 * 100.0, i as f32 * 100.0, 0.0),
                 RectLabel,
-                Velocity { x: 0.0, y: 0.0 },
+                Velocity {
+                    x: VELOCITY,
+                    y: VELOCITY,
+                },
             ))
             .observe(on_rect_click);
     }
@@ -163,18 +173,27 @@ fn on_rect_click(
     }
 }
 
-fn on_btn_click(
+fn on_start_btn_click(
     _click: On<PointerClick>,
+    mut commands: Commands,
     mut text_query: Query<&mut Text, With<Label>>,
     mut rect_should_move: ResMut<RectsShouldMove>,
-    mut rect_vel_query: Query<&mut Velocity, With<RectLabel>>,
+    mut rect_enemy_entities: Query<Entity, With<RectLabel>>,
+    player_entity_q: Query<Entity, With<Player>>,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    for rect_enemy_ent in rect_enemy_entities.iter_mut() {
+        commands.entity(rect_enemy_ent).despawn();
+    }
+    if let Ok(player_entity) = player_entity_q.single() {
+        commands.entity(player_entity).despawn();
+    }
+
+    spawn_player_and_rect_enemies(commands, meshes, materials);
+
     text_query.single_mut().unwrap().0 = String::from("Btn is clicked");
     rect_should_move.0 = true;
-    for mut velocity in rect_vel_query.iter_mut() {
-        velocity.x = VELOCITY;
-        velocity.y = VELOCITY;
-    }
 }
 
 fn rects_movement_system(
